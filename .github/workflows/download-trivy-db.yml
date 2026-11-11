@@ -1,0 +1,48 @@
+
+name: Download Trivy Offline Databases
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install ORAS
+        run: |
+          curl -fL https://github.com/oras-project/oras/releases/download/v1.3.6/oras_1.3.6_linux_amd64.tar.gz -o oras.tar.gz
+          tar -xzf oras.tar.gz oras
+          sudo install -m 755 oras /usr/local/bin/oras
+
+      - name: Download Vulnerability DB
+        run: |
+          mkdir -p output/db
+          oras pull ghcr.io/aquasecurity/trivy-db:2
+          tar -xzf db.tar.gz -C output/db
+
+      - name: Download Java DB
+        run: |
+          mkdir -p output/java-db
+          cd output
+          oras pull ghcr.io/aquasecurity/trivy-java-db:1
+          tar -xzf javadb.tar.gz -C java-db
+
+      - name: Verify databases
+        run: |
+          test -f output/db/metadata.json
+          test -f output/db/trivy.db
+          test -f output/java-db/metadata.json
+          test -f output/java-db/trivy-java.db
+
+      - name: Package databases
+        run: |
+          cd output
+          zip -r ../trivy-offline-databases.zip db java-db
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-offline-databases
+          path: trivy-offline-databases.zip
+          retention-days: 7
